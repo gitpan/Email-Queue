@@ -1,0 +1,148 @@
+NAME
+    Email::Queue - schedule email messages to be sent one by one at a later
+    time.
+
+VERSION
+    Version 0.01
+
+SYNOPSIS
+        use File::Queue;
+
+        my $fq = File::Queue->new(
+            path   => '/tmp/emails',
+            mkpath => 1
+        );
+
+        # Create a message
+        my $message = Email::Simple->create(...);
+
+        # Schedule the message 50 times (for the sake of the example)
+        $fq->schedule($message) for ( 0 .. 49 );
+
+        # ... much later ... from another script ....
+
+        # Process the scheduled messages
+        while ( my $message = $fq->next ) {
+
+            # sendmail is an imaginery sub that sends RFC2822 formatted emails.
+            sendmail( $message->as_string );
+        }
+
+DESCRIPTION
+    This module schedules email messages to be sent one by one at a later
+    time.
+
+    Your web application sends a lot of emails to your users for
+    notifications, verification, updates or anything. Whether you use
+    "sendmail" or "SMTP", your emails are sent slower and they become the
+    bottleneck of your application.
+
+    One possible solution is to use this module to write your emails to
+    files and send them later one by one, perhaps from another script with
+    lower process priority. You could even process the email queue using
+    several concurrently working scripts and it will be OK because this
+    module handles all file locking and queue management.
+
+    This module does not provide the actual email sending functionality. It
+    is up to the user of this module to decide what to use for sending
+    emails.
+
+EMAIL FORMATS
+    All emails must be a Email::Simple object. Please see the documentation
+    for Email::Simple, to understand how to create emails.
+
+    When an email is *scheduled*, it is dumped to a file in the specified
+    "path" as plain text RFC2822 email message.
+
+    When an email is loaded from a file it is converted back to an
+    Email::Simple object.
+
+ATTRIBUTES
+    The following attributes are available during object construction
+
+  path
+    Specifies the path where email files will be stores. The default is the
+    current path. If the path is not writeable it will croak.
+
+  mkpath
+    If set to 1 it will try to create a the "path" unless the path already
+    exists.
+
+  ext
+    Set the extension for the email files. The default value for this
+    attribute is ".eml"
+
+  prefix
+    Set the prefix for the email files. The default value for this attribute
+    is "msg"
+
+  xlock
+    Set the name of the email header which marks an email file as locked.
+    The default value is "X-Lock".
+
+  timeout
+    Timeout in seconds to hold email files locked. If a mailer process locks
+    an email file and does not send it within the specified time, the file
+    will be unlocked and available for other mailer processes. The default
+    value is 3600.
+
+  grab_count
+    Sets the number of messages that "next" will lock when called the very
+    first time. The default value is 50. If set to 0, then "next" will lock
+    all messages in the queue.
+
+      # Only lock 2 messages at a time
+      $fq->grab_count(2);
+
+      $fq->next;        # Lock 2 messages and return the first
+      $fq->next;        # Return the second locked message
+
+      $fq->next;        # Lock another 2 messages and return the first
+
+METHODS
+    The following methods are available:
+
+  schedule( $message )
+    Schedule a message. $message must be an Email::Simple instance. Returns
+    the ID of the message, which is the filename used to save it.
+
+      my $message = Email::Simple->new( ... );
+      my $message_id = $fq->schedule( $message );
+
+  count
+    Returns the count of all scheduled messages.
+
+      my $all_emails = $fq->count;
+
+  next
+    Returns the next scheduled message as an Email::Simple instance and
+    immediately removes that message from the queue. Returns undef is there
+    are no more messages in the queue.
+
+      print "Processing " . $fq->count . " messages\n";
+      while ( my $message = $fq->next ) {
+          # Do something with $message, 
+          # for example send $message->as_string via sendmail
+      }
+      print "All mail sent\n";
+
+SEE ALSO
+    Email::Simple
+
+AUTHOR
+    minimalist, "<minimalist at lavabit.com>"
+
+BUGS
+    Bug reports and patches are welcome. Reports which include a failing
+    Test::More style test are helpful and will receive priority.
+
+DEVELOPMENT
+    The source code of this module is available on GitHub:
+    <https://github.com/naturalist/Email--Queue>
+
+LICENSE AND COPYRIGHT
+    Copyright 2011 minimalist.
+
+    This program is free software; you can redistribute it and/or modify it
+    under the terms as perl itself.
+
